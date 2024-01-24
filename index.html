@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html style="font-size: 16px;" lang="en"><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="keywords" content="INTUITIVE">
+    <meta name="description" content="">
+    <title>CS 180 Proj 5</title>
+    <link rel="stylesheet" href="nicepage.css" media="screen">
+<link rel="stylesheet" href="style.css" media="screen">
+    <script class="u-script" type="text/javascript" src="jquery.js" defer=""></script>
+    <script class="u-script" type="text/javascript" src="nicepage.js" defer=""></script>
+    <meta name="generator" content="Nicepage 5.17.1, nicepage.com">
+    <link id="u-theme-google-font" rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:100,100i,300,300i,400,400i,500,500i,700,700i,900,900i|Open+Sans:300,300i,400,400i,500,500i,600,600i,700,700i,800,800i">
+    
+    <script type="application/ld+json">{
+		"@context": "http://schema.org",
+		"@type": "Organization",
+		"name": "Site1"
+}</script>
+    <meta name="theme-color" content="#478ac9">
+    <meta property="og:title" content="CS 180 Proj 5">
+    <meta property="og:description" content="">
+    <meta property="og:type" content="website">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><meta data-intl-tel-input-cdn-path="intlTelInput/"></head>
+  <body class="u-body u-xl-mode" data-lang="en">
+    <section class="u-align-center u-clearfix u-gradient u-section-1" src="" id="sec-4bf2">
+      <div class="u-clearfix u-sheet u-sheet-1">
+        <h1 class="u-align-center u-text u-text-default-lg u-text-default-md u-text-default-sm u-text-default-xl u-title u-text-1"> CS 180 Proj 5: ​Neural Radiance Field!</h1>
+        <p class="u-large-text u-text u-text-default u-text-variant u-text-2">Aayush Gupta</p>
+      </div>
+    </section>
+    <section class="u-clearfix u-section-2" id="sec-9125">
+      <div class="u-clearfix u-sheet u-sheet-1">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-1">
+          <h3 style="text-align: left;">Part 1: Fit a Neural Field to a 2D Image</h3>
+          <p style="text-align: left;">Before jumping into 3D NeRF, I created a neural field that can represent a 2D image and optimized that neural field to fit this image. In other words, I created a Neural Field F that maps pixels {u, v} to {r, g, b} in 2D. To do this, I used a Multilayer Perceptron (MLP) network with Sinusoidal Positional Encoding (PE) that takes in the 2-dim pixel coordinates and outputs the 3-dim pixel colors. Given that I was working with relatively small images of size around 689 x 1024 in size, I started with the following shallow network architecture:</p>
+        </div>
+        <img class="u-image u-image-contain u-image-default u-image-1" src="input/part_1_mlp.jpg" alt="" data-image-width="2332" data-image-height="696">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-2">
+          <p style="text-align: left;">The PE applies a series of sinusoidal functions to the input coordinates to expand its dimensionality from 2 to L*4+2, where L is the highest frequency level. Note that the original input coordinate is also kept. Mapping the input into a higher dimensional space allows the network to more easily learn a complex and sharp function that would require drastic changes in the output color with small perturbations of the pixel coordinate.</p>
+        </div>
+        <img class="u-image u-image-contain u-image-default u-image-2" src="input/spe.jpg" alt="" data-image-width="624" data-image-height="38">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-3">
+          <p style="text-align: left;">I used a batch size of 10k when training and performing inference.</p>
+        </div>
+      </div>
+    </section>
+    <section class="u-clearfix u-section-3" id="carousel_415d">
+      <div class="u-clearfix u-sheet u-sheet-1">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-1">
+          <h4 style="text-align: left;">Hyperparameter Tuning</h4>
+          <p style="text-align: left;">I tried varying two of the hyperparameters — learning rate and the max frequency L for the positional encoding — to investigate their effect on the performance of the network. The following curves show the Peak signal-to-noise ratio (PSNR) over training iterations on the provided fox image (one iteration corresponds to a gradient descent step on a batch).</p>
+          <p style="text-align: left;">
+            <span style="font-weight: 700;">Learning Rate</span>
+          </p>
+        </div>
+        <img class="u-image u-image-contain u-image-default u-image-1" src="out_dir/Learning Rate Effect.png" alt="" data-image-width="640" data-image-height="480">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-2">
+          <p style="text-align: left;">I tested learning rates in the range [0.00125, 0.08]. Comparing the PSNR curves for each learning rate, one thing that stands out is that too high of a learning rate — 0.04 and above — prevents the model from converging. The performance of the remaining learning rates is only marginally different from one another, although it appears that lr=0.005 consistently performs slightly better than the others.          </p>
+          <p style="text-align: left;">
+            <span style="font-weight: 700;">Max Frequency L</span>
+          </p>
+        </div>
+        <img class="u-image u-image-contain u-image-default u-image-2" src="out_dir/Max Frequency L of Positional Encoding Effect.png" alt="" data-image-width="640" data-image-height="480">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-3">
+          <p style="text-align: left;">I tested L in the range [1, 30]. The above graph makes it clear how important the input dimension expansion is, as low values of L give poor results. L should be set to at least 7 to get good results. On the other hand, setting L too high can also slightly hurt performance. L=30 and L=25 perform slightly worse than the remaining L values, likely because a high input dimension can make it difficult for the shallow network to pick out the important input features without also training for more iterations. L=16 performed best.
+          </p>
+          <p style="text-align: left;">From the hyperparameter sweep, I found the best-performing parameters to be L=16 and lr=0.005 for my MLP on the fox image.
+          </p>
+        </div>
+      </div>
+    </section>
+    <section class="u-align-center u-clearfix u-section-4" id="sec-69ff">
+      <div class="u-clearfix u-sheet u-sheet-1">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-1">
+          <h4 style="text-align: left;">Training Visualization</h4>
+          <p style="text-align: left;">
+            <span style="font-weight: 700;">Fox Image</span>
+          </p>
+          <p style="text-align: left;">On the fox image, I used the 4-layer MLP shown above with the hyperparameters L=16 and lr=0.005. I trained it for 3000 iterations, achieving a PSNR of ~29. The following are predicted images across training iterations.</p>
+        </div>
+        <div class="u-list u-list-1">
+          <div class="u-repeater u-repeater-1">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-1">
+                <img class="u-image u-image-contain u-image-default u-image-1" src="input/fox_img.jpg" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-2">Target Image</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-2">
+                <img class="u-image u-image-contain u-image-default u-image-2" src="out_dir/part_1/Fox Image PSNR.png" alt="" data-image-width="640" data-image-height="480">
+                <p class="u-text u-text-default u-text-3"> PSNR Curve</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u-list u-list-2">
+          <div class="u-repeater u-repeater-2">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-3">
+                <img class="u-image u-image-contain u-image-default u-image-3" src="out_dir/part_1/fox/Predicted img_71.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-4">Iter 71</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-4">
+                <img class="u-image u-image-contain u-image-default u-image-4" src="out_dir/part_1/fox/Predicted img_142.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-5">Iter 142</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-5">
+                <img class="u-image u-image-contain u-image-default u-image-5" src="out_dir/part_1/fox/Predicted img_213.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-6">Iter 213</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-6">
+                <img class="u-image u-image-contain u-image-default u-image-6" src="out_dir/part_1/fox/Predicted img_426.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-7">Iter 426</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-7">
+                <img class="u-image u-image-contain u-image-default u-image-7" src="out_dir/part_1/fox/Predicted img_994.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-8">Iter 994</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-bottom u-container-layout-8">
+                <img class="u-image u-image-contain u-image-default u-image-8" src="out_dir/part_1/fox/Predicted img_3053.png" alt="" data-image-width="1024" data-image-height="689">
+                <p class="u-text u-text-default u-text-9">Iter 3000</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-10">
+          <p style="text-align: left;">
+            <span style="font-weight: 700;">Lion Image</span>
+          </p>
+          <p style="text-align: left;">I also trained this 2D neural field on the following image of a lion. This image is more than 2x the size of the fox image and also has a more complex background, likely making it a substantially more difficult modeling task. As such, I added an extra linear layer to the original 4-layer MLP. After tuning the hyperparameters, I found L=40 and lr=0.0025 to work best. I trained it for 10000 iterations, achieving a PSNR of ~21.75. A higher L working better makes sense, as I simultaneously increased the model size and the number of training iterations, giving the model greater capacity to make use of the increased input dimensionality. The following are predicted images across training iterations.</p>
+        </div>
+        <div class="u-list u-list-3">
+          <div class="u-repeater u-repeater-3">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-top u-container-layout-9">
+                <img class="u-image u-image-contain u-image-default u-image-9" src="input/Lion.jpeg" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-11">Target Image</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-valign-top u-container-layout-10">
+                <img class="u-image u-image-contain u-image-default u-image-10" src="out_dir/part_1/Lion Image PSNR.png" alt="" data-image-width="640" data-image-height="480">
+                <p class="u-text u-text-default u-text-12">PSNR Curve</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u-list u-list-4">
+          <div class="u-repeater u-repeater-4">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-11">
+                <img class="u-image u-image-contain u-image-default u-image-11" src="out_dir/part_1/lion/Predicted img_158.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-13">Iter 158</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-12">
+                <img class="u-image u-image-contain u-image-default u-image-12" src="out_dir/part_1/lion/Predicted img_316.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-14">Iter 316</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-13">
+                <img class="u-image u-image-contain u-image-default u-image-13" src="out_dir/part_1/lion/Predicted img_474.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-15">Iter 424</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-14">
+                <img class="u-image u-image-contain u-image-default u-image-14" src="out_dir/part_1/lion/Predicted img_632.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-16">Iter 632</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-15">
+                <img class="u-image u-image-contain u-image-default u-image-15" src="out_dir/part_1/lion/Predicted img_1106.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-17">Iter 1106</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-16">
+                <img class="u-image u-image-contain u-image-default u-image-16" src="out_dir/part_1/lion/Predicted img_10112.png" alt="" data-image-width="1200" data-image-height="1311">
+                <p class="u-text u-text-default u-text-18">Iter 10000</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="u-align-center u-clearfix u-section-5" id="sec-dda7">
+      <div class="u-clearfix u-sheet u-sheet-1">
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-1">
+          <h3 id="isPasted" style="text-align: left;">Part 2: Fit a Neural Radiance Field from Multi-view Images</h3>
+        </div>
+        <div class="data-layout-selected u-clearfix u-gutter-0 u-layout-wrap u-layout-wrap-1">
+          <div class="u-layout" style="">
+            <div class="u-layout-row" style="">
+              <div class="u-container-style u-layout-cell u-left-cell u-size-33 u-size-xs-60 u-white u-layout-cell-1" src="">
+                <div class="u-container-layout u-valign-top u-container-layout-1">
+                  <p class="u-align-left u-text u-text-2">The next part deals with the more interesting task of using a neural radiance field to represent a 3D space, through inverse rendering from multi-view calibrated images. The Neural Radiance Field (NeRF) maps position and view direction to color and density —&nbsp;F:{x,y,z,r} → {r, g, b, σ}.&nbsp;<br>
+                    <br>For this part, I used the Lego scene from the original&nbsp;<a href="https://www.matthewtancik.com/nerf" rel="noopener noreferrer" target="_blank" class="u-active-none u-border-none u-btn u-button-style u-hover-none u-none u-text-palette-1-base u-btn-1">NeRF paper</a>, but with lower-resolution images (200 x 200) and preprocessed cameras. The figure to the right shows a plot of all the cameras: training cameras in black, validation cameras in red, and test cameras in green.
+                  </p>
+                </div>
+              </div>
+              <div class="u-align-center u-container-style u-layout-cell u-right-cell u-size-27 u-size-xs-60 u-layout-cell-2" src="">
+                <div class="u-container-layout u-container-layout-2" src="">
+                  <img class="u-image u-image-contain u-image-1" src="input/data_plot.png" data-image-width="3456" data-image-height="1752">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-3">
+          <h4 style="text-align: left;">Part 2.1: Create Rays from Cameras</h4>
+          <p style="text-align: left;">I first implemented a function to convert a pixel coordinate to a ray with an origin and normalized direction using a given camera. To do this, I created some helper functions that perform transformations between the different coordinate frames. In particular, I created functions to:</p>
+          <ol>
+            <li style="text-align: left;">transform from camera coordinates to world coordinates using the inverse of the extrinsic matrix — the camera-to-world (c2w) transformation matrix</li>
+            <li style="text-align: left;">transform points in the pixel coordinate system back to the camera coordinate system</li>
+          </ol>
+        </div>
+        <div class="u-list u-list-1">
+          <div class="u-repeater u-repeater-1">
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-3">
+                <img class="u-image u-image-contain u-image-default u-image-2" src="input/c2w.jpg" alt="" data-image-width="1064" data-image-height="666">
+                <p class="u-text u-text-default u-text-4">Relation between world and camera coordinate frames (extrinsic matrix)</p>
+              </div>
+            </div>
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-4">
+                <img class="u-image u-image-contain u-image-default u-image-3" src="input/camera_to_pixel.jpg" alt="" data-image-width="656" data-image-height="378">
+                <p class="u-text u-text-default u-text-5"> Relation between pixel and camera coordinate frames</p>
+              </div>
+            </div>
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-5">
+                <img class="u-image u-image-contain u-image-default u-image-4" src="input/K_mat.jpg" alt="" data-image-width="344" data-image-height="164">
+                <p class="u-text u-text-default u-text-6">Intrinsic Matrix</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-7">
+          <p style="text-align: left;">The ray origin is simply the translation vector <span style="font-style: italic;">t</span> in the camera's c2w transformation matrix. The ray direction for a pixel (u,v) can be found by choosing a point along this ray with depth equal to 1, finding its coordinate in the world space, and finally normalizing it.
+          </p>
+          <h4 id="isPasted" style="text-align: left;">Part 2.2: Create Rays from Cameras</h4>
+          <p style="text-align: left;">Next, I built on these functions to create ray sampling methods. I trained using a batch size of 10k rays, where the rays were created using the previously mentioned methods after randomly sampling 10k pixels globally across the training set of 100 images. To speed up training, I precomputed all the rays and pixel coordinates at the start.</p>
+          <p style="text-align: left;">We also need to discretize each ray into samples so that we can query points along the ray and integrate their colors to get the final color rendered at a particular pixel. To do this, I uniformly sampled points on the ray (t = np.linspace(near, far, n_samples), where near=2.0, far=6.0, and n_samples=64. The actual 3D coordinates were x = r_o + r_d * t, where r_o is the ray origin and r_d is the ray direction. However, this would lead to a fixed set of 3D points always being queried, which could potentially lead to overfitting and poor results on new cameras in the test set. As such, to regularize training, I introduced some small perturbations to the points, so that every location along the ray would be touched upon during training. This was done by setting t = t + np.random.rand(t.shape) * t_width, thereby adding Uniform(0,1) noise to each point.</p>
+          <h4 style="text-align: left;">Part 2.3: Putting the Dataloading All Together</h4>
+          <p style="text-align: left;">I wrapped all of this functionality into a dataloader that randomly sampled pixels from multiview images. The following are some sanity checks to verify the correctness of my sampling code.</p>
+        </div>
+        <div class="u-list u-list-2">
+          <div class="u-repeater u-repeater-2">
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-6">
+                <img class="u-image u-image-contain u-image-default u-image-5" src="out_dir/multi_cam.jpg" alt="" data-image-width="841" data-image-height="685">
+                <p class="u-text u-text-default u-text-8">100 Randomly Sampled Rays</p>
+              </div>
+            </div>
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-7">
+                <img class="u-image u-image-contain u-image-default u-image-6" src="out_dir/single_cam.jpg" alt="" data-image-width="891" data-image-height="668">
+                <p class="u-text u-text-default u-text-9">Rays sampled from a single camera</p>
+              </div>
+            </div>
+            <div class="u-align-center u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-8">
+                <img class="u-image u-image-contain u-image-default u-image-7" src="out_dir/top_right.jpg" alt="" data-image-width="910" data-image-height="672">
+                <p class="u-text u-text-default u-text-10">Rays from a single camera from the top right corner</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-11">
+          <h4 id="isPasted" style="text-align: left;">
+            <span class="u-custom-font u-text-font">Part 2.4: Neural Radiance Field</span>
+          </h4>
+          <p style="text-align: left;">
+            <span class="u-custom-font u-text-font">I implemented the network to predict the density and color of points. The network used was similar to the MLP in Part 1 but with increased inputs (3D world coordinates and a 3D view direction) and increased outputs (RGB color and density). Due to the more challenging task of creating a 3D representation, I used a deeper network. A ReLU activation function was used before outputting density to constrain it to be positive, and a Sigmoid was used before outputting RGB values to keep colors between [0,1]. The following is the architecture used:</span>
+          </p>
+          <p style="text-align: left;">
+            <img src="input/mlp_nerf.png" width="555.5" style="width: 850px;" class="fr-dib fr-fic">
+          </p>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-12">
+          <h4 id="isPasted" style="text-align: left;">
+            <span class="u-custom-font u-text-font">Part 2.5: Volume Rendering</span>
+          </h4>
+          <p id="isPasted" style="text-align: left;">Once we use our network to query the colors and density of points along a ray, we need to integrate the colors to get the actual color for that pixel. This means that at every small step <span style="font-style: italic;">dt</span> along the ray, we add the contribution of that small interval [<span style="font-style: italic;">t, t+dt]</span> to that final color.
+          </p>
+          <p style="text-align: left;">The tractable discrete approximation of this equation can be stated as the following, where c_i is the color, sigma_i is the density, and delta_i is the interval width:</p>
+          <p style="text-align: left;">
+            <img src="input/vol rend.jpg" style="width: 740px;" class="fr-dib fr-fic" width="555.5">
+          </p>
+          <p style="text-align: left;">To vectorize the computation, I used torch.comprod to calculate T_i. The delta_i's were found by using the intervals defined by <span style="font-style: italic;">t</span> from before.
+          </p>
+          <h4 style="text-align: left;">Results</h4>
+          <p style="text-align: left;">I trained using an Adam optimizer with a learning rate of 5e-4 with a batch size of 10k rays. The following is a visualization of the rendering of validation views 3 and 0 over training:
+          </p>
+        </div>
+        <div class="u-list u-list-3">
+          <div class="u-repeater u-repeater-3">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-9">
+                <img class="u-image u-image-contain u-image-default u-image-8" src="out_dir/val_images/Predicted img 3_1.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-13">Iter 0</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-10">
+                <img class="u-image u-image-contain u-image-default u-image-9" src="out_dir/val_images/Predicted img 3_201.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-14">Iter 200</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-11">
+                <img class="u-image u-image-contain u-image-default u-image-10" src="out_dir/val_images/Predicted img 3_401.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-15">Iter 400</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-12">
+                <img class="u-image u-image-contain u-image-default u-image-11" src="out_dir/val_images/Predicted img 3_601.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-16">Iter 600</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-13">
+                <img class="u-image u-image-contain u-image-default u-image-12" src="out_dir/val_images/Predicted img 3_1001.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-17">Iter 1000</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-14">
+                <img class="u-image u-image-contain u-image-default u-image-13" src="out_dir/val_images/Predicted img 3_9601.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-18">Iter 9600</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u-list u-list-4">
+          <div class="u-repeater u-repeater-4">
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-15">
+                <img class="u-image u-image-contain u-image-default u-image-14" src="out_dir/val_images/Predicted img 0_1.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-19">Iter 0</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-16">
+                <img class="u-image u-image-contain u-image-default u-image-15" src="out_dir/val_images/Predicted img 0_201.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-20">Iter 200</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-17">
+                <img class="u-image u-image-contain u-image-default u-image-16" src="out_dir/val_images/Predicted img 0_401.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-21">Iter 400</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-18">
+                <img class="u-image u-image-contain u-image-default u-image-17" src="out_dir/val_images/Predicted img 0_601.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-22">Iter 600</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-19">
+                <img class="u-image u-image-contain u-image-default u-image-18" src="out_dir/val_images/Predicted img 0_1001.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-23">Iter 1000</p>
+              </div>
+            </div>
+            <div class="u-container-style u-list-item u-repeater-item">
+              <div class="u-container-layout u-similar-container u-container-layout-20">
+                <img class="u-image u-image-contain u-image-default u-image-19" src="out_dir/val_images/Predicted img 0_9601.png" alt="" data-image-width="200" data-image-height="200">
+                <p class="u-text u-text-default u-text-24">Iter 9600</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-25">
+          <h5 id="isPasted" style="text-align: left;">PSNR Curve</h5>
+          <p style="text-align: left;">
+            <span class="u-custom-font u-text-font">The following is the PSNR curve averaged across 6 of the validation images. Training crashed after 9700 iterations, but reached the target of a 30 PSNR.
+            </span>
+          </p>
+          <p style="text-align: left;">
+            <img src="out_dir/Lego_PSNR.jpg" style="width: 850px;" class="fr-dib fr-fic" width="555.5">
+          </p>
+        </div>
+        <div class="fr-view u-align-center u-clearfix u-rich-text u-text u-text-26">
+          <h5 id="isPasted" style="text-align: left;">Final Rendering</h5>
+          <p style="text-align: left;">With the trained network, I rendered novel views of the Lego truck from new camera extrinsics, chosen to circle around the Lego truck. This creates the following spherical rendering:</p>
+          <p style="text-align: left;">
+            <img src="out_dir/final_out.gif" style="width: 397px;" class="fr-dib fr-fic" width="200">
+          </p>
+        </div>
+      </div>
+    </section>
+  
+</body></html>
